@@ -37,14 +37,38 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = void 0;
+var fetchFile = function (url) { return __awaiter(void 0, void 0, void 0, function () {
+    var response, _a, _b;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
+            case 0: return [4 /*yield*/, fetch(url)];
+            case 1:
+                response = _c.sent();
+                if (!response.ok) {
+                    throw new Error("Failed to fetch file: ".concat(response.statusText));
+                }
+                _b = (_a = Buffer).from;
+                return [4 /*yield*/, response.arrayBuffer()];
+            case 2: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
+        }
+    });
+}); };
 var handler = function (event, context) { return __awaiter(void 0, void 0, void 0, function () {
+    var file;
     return __generator(this, function (_a) {
-        console.log("request:", JSON.stringify(event, undefined, 2));
-        return [2 /*return*/, {
-                statusCode: 200,
-                headers: { "Content-Type": "text/plain" },
-                body: "Hello, CDK! You've hit ".concat(event, "\n")
-            }];
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, fetchFile("https://manchestercentralmosque.org/wp-content/uploads/2023/12/VP-JANURAY-2024-PRAYER-TIMETABLE.pdf")
+                    .then(function (buffer) { return console.log("File fetched with size: ".concat(buffer.length, " bytes")); })
+                    .catch(console.error)];
+            case 1:
+                file = _a.sent();
+                console.log(file);
+                return [2 /*return*/, {
+                        statusCode: 200,
+                        headers: { "Content-Type": "text/plain" },
+                        body: "Hello, CDK! You've hit ".concat(event, "\n")
+                    }];
+        }
     });
 }); };
 exports.handler = handler;

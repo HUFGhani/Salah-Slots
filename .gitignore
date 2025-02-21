@@ -17,4 +17,4 @@
 .history
 .ionide
 node_modules
-**/*/node_modules
+**/node_modules

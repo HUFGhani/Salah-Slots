@@ -18,3 +18,6 @@
 .ionide
 node_modules
 **/node_modules
+
+**/*/.cdk.out
+**/*/*.js

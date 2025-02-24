@@ -1,5 +1,5 @@
-import { APIGatewayEvent, Context } from "aws-lambda";
-
+import { APIGatewayEvent, APIGatewayProxyResult, Context } from "aws-lambda";
+import * as pdfParse from "pdf-parse";
 
 const fetchFile = async (url: string): Promise<Buffer> => {
   const response = await fetch(url);
@@ -9,17 +9,28 @@ const fetchFile = async (url: string): Promise<Buffer> => {
   return Buffer.from(await response.arrayBuffer());
 };
 
-export const handler = async (event : APIGatewayEvent, context: Context) => {
+export const handler = async (event: APIGatewayEvent, context: Context): Promise<APIGatewayProxyResult> => {
+  try {
+    const fileBuffer: Buffer = await fetchFile(
+      "https://manchestercentralmosque.org/wp-content/uploads/2023/12/VP-JANURAY-2024-PRAYER-TIMETABLE.pdf"
+    );
 
-  const file = await fetchFile("https://manchestercentralmosque.org/wp-content/uploads/2023/12/VP-JANURAY-2024-PRAYER-TIMETABLE.pdf")
-  .then(buffer => console.log(`File fetched with size: ${buffer.length} bytes`))
-  .catch(console.error);
+    console.log(`File fetched with size: ${fileBuffer.length} bytes`);
 
+    const pdfData = await pdfParse(fileBuffer);
+    console.log(pdfData.text);
 
     return {
-        statusCode: 200,
-        headers: { "Content-Type": "text/plain" },
-        body: `Hello, CDK! You've hit ${event}\n`
-      };
-    
-}
+      statusCode: 200,
+      headers: { "Content-Type": "text/plain" },
+      body: `Extracted PDF text:\n\n${pdfData.text}`,
+    };
+  } catch (error) {
+    console.error("Error processing PDF:", error);
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "text/plain" },
+      body: "Internal Server Error",
+    };
+  }
+};

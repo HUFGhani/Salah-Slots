@@ -1,5 +1,4 @@
 import { APIGatewayEvent, APIGatewayProxyResult, Context } from "aws-lambda";
-import * as pdfParse from "pdf-parse";
 
 
 
@@ -18,59 +17,49 @@ interface SalahTimetable {
 }
 
 
-const salahTimeRegex = /(\d{1,2})\s*([a-zA-Z]{3})\s*(\d{1,2})\s*(\d{1,2}:\d{1,2})\s*(\d{1,2}:\d{1,2})\s*(\d{1,2}:\d{1,2})\s(\d{1,2}:\d{1,2})\s(\d{1,2}:\d{1,2})\s(\d{1,2}:\d{1,2})\s(\d{1,2}:\d{1,2})\s(\d{1,2}:\d{1,2})\s(\d{1,2}:\d{1,2})\s(\d{1,2}:\d{1,2})\s(\d{1,2}:\d{1,2})\s{2}(\d{1,2}:\d{1,2})/gm
-
-const fetchFile = async (url: string): Promise<Buffer> => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch file: ${response.statusText}`);
-  }
-  return Buffer.from(await response.arrayBuffer());
-};
-
-const parseSalahTime = (text: string, salahTimeRegex: RegExp) : SalahTimetable[] =>{
- 
-  const cleanedText = text.replace(/\n/g, " ");
-  const matches: RegExpExecArray[] = Array.from(cleanedText.matchAll(salahTimeRegex))
-
-  if (!matches) {
-    console.log("No prayer times found.");
-  }
-
-  return matches.map((match:RegExpExecArray)=>{
-    return {
-      day: match[0],
-      weekday: match[2],
-      salahTime:{
-        fajar: match[4] || "",
-        zhuhr: match[6] || "",
-        asr: match[7] || "",
-        maghrib: match[14] || "",
-        isha: match[10] || ""
-      }
-    }
-  })
-  
+const fetchSalahTimeTable = async(month:string, year:string):Promise<string>=>{
+  const response = await fetch("https://manchestercentralmosque.org/wp-admin/admin-ajax.php", {
+    headers: {
+        "accept": "*/*",
+        "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+        "cache-control": "no-cache",
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "pragma": "no-cache",
+        "priority": "u=1, i",
+        "sec-ch-ua": '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "x-requested-with": "XMLHttpRequest",
+        "cookie": "_gid=GA1.2.408892989.1741961752; _gat_gtag_UA_193651382_1=1; _ga=GA1.1.276763202.1741961752; _ga_DQQQT9Q09D=GS1.1.1741961752.1.1.1741961762.0.0.0",
+        "Referer": "https://manchestercentralmosque.org/prayer-times/",
+        "Referrer-Policy": "strict-origin-when-cross-origin"
+    },
+    body: `current_file=${month}+${year}&action=mcm_get_month_file`,
+    method: "POST"
+});
+return response.text();
 }
 
 
+const parseSalahTime = (html):SalahTimetable[] =>{
+const salahTimetable: SalahTimetable = []
+
+return salahTimetable
+}
 
 export const handler = async (event: APIGatewayEvent, context: Context): Promise<APIGatewayProxyResult> => {
   try {
-    const fileBuffer: Buffer = await fetchFile("https://drive.google.com/uc?export=download&id=1jqmPbY4xRkX7dDvlqGvc3OKV_3K4NKGD"
-     // "https://drive.google.com/file/d/1jqmPbY4xRkX7dDvlqGvc3OKV_3K4NKGD/view?usp=sharing"
-    );
 
-    console.log(`File fetched with size: ${fileBuffer.length} bytes`);
-
-    const pdfData = await pdfParse(fileBuffer);
- 
-    const SalahTimetable = parseSalahTime(pdfData.text, salahTimeRegex)
+    const rawhtmlSalahTimetable = await fetchSalahTimeTable("Mar", "2025")
+    const salahTimetable = parseSalahTime(rawhtmlSalahTimetable)
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "text/plain" },
-      body: `Extracted PDF text: ${JSON.stringify(SalahTimetable)}`,
+      body: `Extracted PDF text: ${JSON.stringify(salahTimetable)}`,
     };
   } catch (error) {
     console.error("Error processing PDF:", error);

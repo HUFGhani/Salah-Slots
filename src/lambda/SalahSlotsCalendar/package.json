@@ -10,6 +10,7 @@
   "description": "",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.147",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^22.13.4",
     "@types/pdf-parse": "^1.1.4"
   },

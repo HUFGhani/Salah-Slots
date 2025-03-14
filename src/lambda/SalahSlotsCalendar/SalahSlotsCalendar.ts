@@ -61,7 +61,7 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
     }
     const cells = row.querySelectorAll("td");
 
-    if (!isNaN(+cells[0].textContent!.trim())) {
+    if (isNaN(+cells[0].textContent!.trim())) {
       return;
     }
 

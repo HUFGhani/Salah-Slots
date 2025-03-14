@@ -10,7 +10,7 @@ interface SalahTime {
 }
 
 interface SalahTimetable {
-  day: string;
+  day: number;
   weekday: string;
   salahTime: SalahTime;
 }
@@ -49,7 +49,7 @@ const fetchSalahTimeTable = async (
   return response.text();
 };
 
-const parseSalahTime = (html:string): SalahTimetable[] => {
+const parseSalahTime = (html: string): SalahTimetable[] => {
   const salahTimetable: SalahTimetable[] = [];
   const dom = new JSDOM(html);
   const doc = dom.window.document;
@@ -60,20 +60,30 @@ const parseSalahTime = (html:string): SalahTimetable[] => {
       return;
     }
     const cells = row.querySelectorAll("td");
+
+    if (!isNaN(+cells[0].textContent!.trim())) {
+      return;
+    }
+
     salahTimetable.push({
-      day: cells[0].textContent!.trim(),
+      day: Number(cells[0].textContent!.trim()),
       weekday: cells[1].textContent!.trim(),
       salahTime: {
-        fajar: cells[3].textContent!.trim(),
-        zhuhr: cells[6].textContent!.trim(),
-        asr: cells[7].textContent!.trim(),
-        maghrib: cells[13].textContent!.trim(),
-        isha: cells[9].textContent!.trim(),
+        fajar: formatTime(cells[3].textContent!.trim()),
+        zhuhr: formatTime(cells[6].textContent!.trim()),
+        asr: formatTime(cells[7].textContent!.trim()),
+        maghrib: formatTime(cells[13].textContent!.trim()),
+        isha: formatTime(cells[9].textContent!.trim()),
       },
     });
   });
+ 
 
   return salahTimetable;
+};
+
+const formatTime = (time: string): string => {
+  return time.replace(".", ":");
 };
 
 export const handler = async (

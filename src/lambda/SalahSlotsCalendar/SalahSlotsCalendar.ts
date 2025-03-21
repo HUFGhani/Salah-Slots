@@ -12,6 +12,8 @@ interface SalahTime {
 interface SalahTimetable {
   day: number;
   weekday: string;
+  gregorianCalendarMonth: string
+  islamicCalendarMonth?: string;
   salahTime: SalahTime;
 }
 
@@ -55,11 +57,21 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
   const doc = dom.window.document;
   const rows = doc.querySelectorAll("table tr");
 
+  let month = '';
+  const firstRowCells = rows[1]?.querySelectorAll("td");
+  if (firstRowCells && firstRowCells.length > 0) {
+    month = firstRowCells[0].textContent!.trim(); 
+  }
+
   rows.forEach((row, index) => {
+
     if (index === 0 || index === 1) {
       return;
     }
     const cells = row.querySelectorAll("td");
+
+    const islamicCalendarMonth = cells[0].textContent!.trim().match("[a-zA-Z]")
+
 
     if (isNaN(+cells[0].textContent!.trim())) {
       return;
@@ -68,8 +80,9 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
     salahTimetable.push({
       day: Number(cells[0].textContent!.trim()),
       weekday: cells[1].textContent!.trim(),
+      gregorianCalendarMonth: month[0].toUpperCase() + month.slice(1).toLowerCase(),
       salahTime: {
-        fajar: formatTime(cells[3].textContent!.trim()),
+        fajar: formatTime(cells[3].textContent!.trim(), "fajar", false),
         zhuhr: formatTime(cells[6].textContent!.trim()),
         asr: formatTime(cells[7].textContent!.trim()),
         maghrib: formatTime(cells[13].textContent!.trim()),
@@ -82,8 +95,32 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
   return salahTimetable;
 };
 
-const formatTime = (time: string): string => {
-  return time.replace(".", ":");
+
+const generateIcs = (salahTime: SalahTimetable[], year:string) =>{
+return salahTime.flatMap(({ day, salahTime , gregorianCalendarMonth}) => 
+  Object.entries(salahTime).map(([salahName, time]) => ({
+    day,
+    gregorianCalendarMonth,
+    [salahName]: time
+  }))
+);
+
+}
+
+const formatTime = (time: string, salahName?: string, isPm:boolean = true): string => {
+  if (salahName === "fajar") {
+    return time.replace(".", ":");
+  }
+
+  let [hours, minutes] = time.split('.');
+
+  hours = hours === '12' ? '00' : hours;
+  if (isPm) {
+    hours = String(Number(hours) + 12);
+  }
+
+  return `${hours}:${minutes}`;
+
 };
 
 export const handler = async (
@@ -93,6 +130,9 @@ export const handler = async (
   try {
     const rawhtmlSalahTimetable = await fetchSalahTimeTable("Mar", "2025");
     const salahTimetable = parseSalahTime(rawhtmlSalahTimetable);
+    const salahIcsFile = generateIcs(salahTimetable, "2025")
+
+    console.log(salahIcsFile)
 
     return {
       statusCode: 200,

@@ -20,5 +20,9 @@ export class SalahSlotsInfrastructureStack extends cdk.Stack {
       aliasName: "Prod",
       version,
     });
+
+    const lambdaUrl = lambdaFunc.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+    });
   }
 }

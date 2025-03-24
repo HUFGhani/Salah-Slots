@@ -1,4 +1,5 @@
-import { APIGatewayEvent, APIGatewayProxyResult, Context } from "aws-lambda";
+import { APIGatewayEvent, Context } from "aws-lambda";
+import * as ics from "ics";
 import { JSDOM } from "jsdom";
 
 interface SalahTime {
@@ -12,7 +13,7 @@ interface SalahTime {
 interface SalahTimetable {
   day: number;
   weekday: string;
-  gregorianCalendarMonth: string
+  gregorianCalendarMonth: string;
   islamicCalendarMonth?: string;
   salahTime: SalahTime;
 }
@@ -57,21 +58,17 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
   const doc = dom.window.document;
   const rows = doc.querySelectorAll("table tr");
 
-  let month = '';
+  let month = "";
   const firstRowCells = rows[1]?.querySelectorAll("td");
   if (firstRowCells && firstRowCells.length > 0) {
-    month = firstRowCells[0].textContent!.trim(); 
+    month = firstRowCells[0].textContent!.trim();
   }
 
   rows.forEach((row, index) => {
-
     if (index === 0 || index === 1) {
       return;
     }
     const cells = row.querySelectorAll("td");
-
-    const islamicCalendarMonth = cells[0].textContent!.trim().match("[a-zA-Z]")
-
 
     if (isNaN(+cells[0].textContent!.trim())) {
       return;
@@ -80,7 +77,8 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
     salahTimetable.push({
       day: Number(cells[0].textContent!.trim()),
       weekday: cells[1].textContent!.trim(),
-      gregorianCalendarMonth: month[0].toUpperCase() + month.slice(1).toLowerCase(),
+      gregorianCalendarMonth:
+        month[0].toUpperCase() + month.slice(1).toLowerCase(),
       salahTime: {
         fajar: formatTime(cells[3].textContent!.trim(), "fajar", false),
         zhuhr: formatTime(cells[6].textContent!.trim()),
@@ -90,54 +88,79 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
       },
     });
   });
- 
 
   return salahTimetable;
 };
 
+const generateIcs = (salahTime: SalahTimetable[], year: string) => {
+  const events: ics.EventAttributes[] = salahTime.flatMap(
+    ({ day, gregorianCalendarMonth, salahTime }) => {
+      return Object.entries(salahTime).map(([salahName, time]) => {
+      
+      
+        const [hour, minute] = time.split(":").map(Number);
 
-const generateIcs = (salahTime: SalahTimetable[], year:string) =>{
-return salahTime.flatMap(({ day, salahTime , gregorianCalendarMonth}) => 
-  Object.entries(salahTime).map(([salahName, time]) => ({
-    day,
-    gregorianCalendarMonth,
-    [salahName]: time
-  }))
-);
+        const date = new Date();
+        const monthIndex =
+          new Date(
+            date.getFullYear(),
+            new Date(`${gregorianCalendarMonth} 1`).getMonth(),
+          ).getMonth() + 1;
+        const salah = salahName.charAt(0).toUpperCase() + salahName.slice(1);
 
-}
 
-const formatTime = (time: string, salahName?: string, isPm:boolean = true): string => {
+        return {
+          title: `${salah} Prayer`,
+          start: [Number(year), monthIndex, day, Number(hour), Number(minute)],
+          description: `time to read ${salah} salah `,
+          duration: { minutes: 15 },
+        };
+        
+      });
+    },
+  );
+
+  const {value } = ics.createEvents([...events])
+
+  return value
+};
+
+const formatTime = (
+  time: string,
+  salahName?: string,
+  isPm: boolean = true,
+): string => {
   if (salahName === "fajar") {
     return time.replace(".", ":");
   }
 
-  let [hours, minutes] = time.split('.');
-
-  hours = hours === '12' ? '00' : hours;
+  let [hours, minutes] = time.split(".");
+  hours = hours === "12" ? "00" : hours;
   if (isPm) {
     hours = String(Number(hours) + 12);
   }
-
   return `${hours}:${minutes}`;
-
 };
 
 export const handler = async (
   event: APIGatewayEvent,
   context: Context,
-): Promise<APIGatewayProxyResult> => {
+) => {
   try {
     const rawhtmlSalahTimetable = await fetchSalahTimeTable("Mar", "2025");
     const salahTimetable = parseSalahTime(rawhtmlSalahTimetable);
-    const salahIcsFile = generateIcs(salahTimetable, "2025")
+    const salahIcsFile = generateIcs(salahTimetable, "2025");
 
-    console.log(salahIcsFile)
+    console.log(salahIcsFile);
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "text/plain" },
-      body: `Extracted PDF text: ${JSON.stringify(salahTimetable)}`,
+      headers: {
+        "Content-Type": "text/calendar; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="salah.ics"',
+        "Access-Control-Allow-Origin": "*"
+    },
+      body: salahIcsFile,
     };
   } catch (error) {
     console.error("Error processing PDF:", error);

@@ -1,6 +1,8 @@
+import { GetParametersCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { APIGatewayEvent, Context } from "aws-lambda";
 import * as ics from "ics";
 import { JSDOM } from "jsdom";
+
 
 interface SalahTime {
   fajar: String;
@@ -99,6 +101,10 @@ const generateIcs = (salahTime: SalahTimetable[], year: string) => {
       
       
         const [hour, minute] = time.split(":").map(Number);
+              
+              if (hour < 9 || hour >= 17) {
+                return null;  
+              }
 
         const date = new Date();
         const monthIndex =
@@ -110,13 +116,22 @@ const generateIcs = (salahTime: SalahTimetable[], year: string) => {
 
 
         return {
-          title: `${salah} Prayer`,
+          title: `${salah} Prayer Time`,
           start: [Number(year), monthIndex, day, Number(hour), Number(minute)],
-          description: `time to read ${salah} salah `,
+          description: `Time to read ${salah} salah `,
           duration: { minutes: 15 },
-        };
+          status: "CONFIRMED",
+          busyStatus: 'BUSY',
+          alarms: [{ 
+            action: 'audio',
+            description: `${salah} Prayer Time`,
+            summary: `${salah} Prayer Time`,
+            trigger: {minutes:10,before:true},
+            attach: 'Glass'
+           }]
+        } as ics.EventAttributes
         
-      });
+      }).filter((event): event is ics.EventAttributes => event !== null)
     },
   );
 
@@ -142,14 +157,37 @@ const formatTime = (
   return `${hours}:${minutes}`;
 };
 
+const getPayloadConfig = async (): Promise<{month:string | undefined, year: string| undefined}> =>{
+  try {
+    const client = new SSMClient()
+    const input = {
+      Names: ["/SalahSlots/GetPayloadConfig/Month", "/SalahSlots/GetPayloadConfig/Year"],
+      WithDecryption: false,
+    }
+    const command = new GetParametersCommand(input);
+    const response = await client.send(command);
+    if (response.Parameters?.length == 0){
+      throw new Error("Parameters does not have vaules");
+    }
+    return{
+      month: response.Parameters?.[0].Value,
+      year: response.Parameters?.[1].Value,
+    }
+  } catch (error) {
+    console.error(error);
+		throw error;
+  }
+}
+
 export const handler = async (
   event: APIGatewayEvent,
   context: Context,
 ) => {
+  const {month, year} = await getPayloadConfig()
   try {
-    const rawhtmlSalahTimetable = await fetchSalahTimeTable("Mar", "2025");
+    const rawhtmlSalahTimetable = await fetchSalahTimeTable(String(month), String(year));
     const salahTimetable = parseSalahTime(rawhtmlSalahTimetable);
-    const salahIcsFile = generateIcs(salahTimetable, "2025");
+    const salahIcsFile = generateIcs(salahTimetable, String(year));
 
     console.log(salahIcsFile);
 

@@ -3,7 +3,6 @@ import { APIGatewayEvent, Context } from "aws-lambda";
 import * as ics from "ics";
 import { JSDOM } from "jsdom";
 
-
 interface SalahTime {
   fajar: String;
   zhuhr: String;
@@ -94,50 +93,62 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
   return salahTimetable;
 };
 
+const isWorkingHours = (hour: number): boolean => hour < 9 && hour >= 17;
+
+const isItWorkday = (weekday: string): boolean =>
+  weekday != "SAT" && weekday != "SUN";
+
+
 const generateIcs = (salahTime: SalahTimetable[], year: string) => {
   const events: ics.EventAttributes[] = salahTime.flatMap(
-    ({ day, gregorianCalendarMonth, salahTime }) => {
-      return Object.entries(salahTime).map(([salahName, time]) => {
-      
-      
-        const [hour, minute] = time.split(":").map(Number);
-              
-              if (hour < 9 || hour >= 17) {
-                return null;  
-              }
+    ({ day, weekday, gregorianCalendarMonth, salahTime }) => {
+      return Object.entries(salahTime)
+        .map(([salahName, time]) => {
+          const [hour, minute] = time.split(":").map(Number);
 
-        const date = new Date();
-        const monthIndex =
-          new Date(
-            date.getFullYear(),
-            new Date(`${gregorianCalendarMonth} 1`).getMonth(),
-          ).getMonth() + 1;
-        const salah = salahName.charAt(0).toUpperCase() + salahName.slice(1);
+          isWorkingHours(hour);
 
+          isItWorkday(weekday);
 
-        return {
-          title: `${salah} Prayer Time`,
-          start: [Number(year), monthIndex, day, Number(hour), Number(minute)],
-          description: `Time to read ${salah} salah `,
-          duration: { minutes: 15 },
-          status: "CONFIRMED",
-          busyStatus: 'BUSY',
-          alarms: [{ 
-            action: 'audio',
-            description: `${salah} Prayer Time`,
-            summary: `${salah} Prayer Time`,
-            trigger: {minutes:10,before:true},
-            attach: 'Glass'
-           }]
-        } as ics.EventAttributes
-        
-      }).filter((event): event is ics.EventAttributes => event !== null)
+          const date = new Date();
+          const monthIndex =
+            new Date(
+              date.getFullYear(),
+              new Date(`${gregorianCalendarMonth} 1`).getMonth(),
+            ).getMonth() + 1;
+          const salah = salahName.charAt(0).toUpperCase() + salahName.slice(1);
+
+          return {
+            title: `${salah} Prayer Time`,
+            start: [
+              Number(year),
+              monthIndex,
+              day,
+              Number(hour),
+              Number(minute),
+            ],
+            description: `Time to read ${salah} salah `,
+            duration: { minutes: 15 },
+            status: "CONFIRMED",
+            busyStatus: "BUSY",
+            alarms: [
+              {
+                action: "audio",
+                description: `${salah} Prayer Time`,
+                summary: `${salah} Prayer Time`,
+                trigger: { minutes: 10, before: true },
+                attach: "Glass",
+              },
+            ],
+          } as ics.EventAttributes;
+        })
+        .filter((event): event is ics.EventAttributes => event !== null);
     },
   );
 
-  const {value } = ics.createEvents([...events])
+  const { value } = ics.createEvents([...events]);
 
-  return value
+  return value;
 };
 
 const formatTime = (
@@ -157,35 +168,41 @@ const formatTime = (
   return `${hours}:${minutes}`;
 };
 
-const getPayloadConfig = async (): Promise<{month:string | undefined, year: string| undefined}> =>{
+const getPayloadConfig = async (): Promise<{
+  month: string | undefined;
+  year: string | undefined;
+}> => {
   try {
-    const client = new SSMClient()
+    const client = new SSMClient();
     const input = {
-      Names: ["/SalahSlots/GetPayloadConfig/Month", "/SalahSlots/GetPayloadConfig/Year"],
+      Names: [
+        "/SalahSlots/GetPayloadConfig/Month",
+        "/SalahSlots/GetPayloadConfig/Year",
+      ],
       WithDecryption: false,
-    }
+    };
     const command = new GetParametersCommand(input);
     const response = await client.send(command);
-    if (response.Parameters?.length == 0){
+    if (response.Parameters?.length == 0) {
       throw new Error("Parameters does not have vaules");
     }
-    return{
+    return {
       month: response.Parameters?.[0].Value,
       year: response.Parameters?.[1].Value,
-    }
+    };
   } catch (error) {
     console.error(error);
-		throw error;
+    throw error;
   }
-}
+};
 
-export const handler = async (
-  event: APIGatewayEvent,
-  context: Context,
-) => {
-  const {month, year} = await getPayloadConfig()
+export const handler = async (event: APIGatewayEvent, context: Context) => {
+  const { month, year } = await getPayloadConfig();
   try {
-    const rawhtmlSalahTimetable = await fetchSalahTimeTable(String(month), String(year));
+    const rawhtmlSalahTimetable = await fetchSalahTimeTable(
+      String(month),
+      String(year),
+    );
     const salahTimetable = parseSalahTime(rawhtmlSalahTimetable);
     const salahIcsFile = generateIcs(salahTimetable, String(year));
 
@@ -196,8 +213,8 @@ export const handler = async (
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": 'attachment; filename="salah.ics"',
-        "Access-Control-Allow-Origin": "*"
-    },
+        "Access-Control-Allow-Origin": "*",
+      },
       body: salahIcsFile,
     };
   } catch (error) {

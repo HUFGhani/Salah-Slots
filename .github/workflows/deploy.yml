@@ -24,17 +24,18 @@ jobs:
           cache: 'npm'
           cache-dependency-path: infrastructure/package-lock.json
 
-      - name: Install CDK and dependencies
-        run: |
-          npm install -g aws-cdk
-          cd infrastructure
-          npm ci
-
       - name: Install Lambda dependencies
         run: |
           cd src/lambda/SalahSlotsCalendar
           npm ci
           npm run build
+          npm run test
+
+      - name: Install CDK and dependencies
+        run: |
+          npm install -g aws-cdk
+          cd infrastructure
+          npm ci
 
       - name: Synthesize CDK Stack
         run: |

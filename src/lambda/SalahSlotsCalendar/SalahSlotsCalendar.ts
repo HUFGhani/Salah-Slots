@@ -1,26 +1,7 @@
-import { GetParametersCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { APIGatewayEvent, Context } from "aws-lambda";
-import * as ics from "ics";
-import { JSDOM } from "jsdom";
-import { DateTime } from 'luxon';
-
-interface SalahTime {
-  fajar: String;
-  zhuhr: String;
-  asr: String;
-  maghrib: String;
-  isha: String;
-}
-
-interface SalahTimetable {
-  day: number;
-  weekday: string;
-  gregorianCalendarMonth: string;
-  islamicCalendarMonth?: string;
-  salahTime: SalahTime;
-}
-
-type Weekday = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+import { generateIcs } from "./generateIcs";
+import { getPayloadConfig } from "./getPayloadConfig";
+import { parseSalahTime } from "./parseSalahTime";
 
 const fetchSalahTimeTable = async (
   month: string,
@@ -56,147 +37,6 @@ const fetchSalahTimeTable = async (
   return response.text();
 };
 
-const parseSalahTime = (html: string): SalahTimetable[] => {
-  const salahTimetable: SalahTimetable[] = [];
-  const dom = new JSDOM(html);
-  const doc = dom.window.document;
-  const rows = doc.querySelectorAll("table tr");
-
-  let month = "";
-  const firstRowCells = rows[1]?.querySelectorAll("td");
-  if (firstRowCells && firstRowCells.length > 0) {
-    month = firstRowCells[0].textContent!.trim();
-  }
-
-  rows.forEach((row, index) => {
-    if (index === 0 || index === 1) {
-      return;
-    }
-    const cells = row.querySelectorAll("td");
-
-    if (isNaN(+cells[0].textContent!.trim())) {
-      return;
-    }
-
-    salahTimetable.push({
-      day: Number(cells[0].textContent!.trim()),
-      weekday: cells[1].textContent!.trim(),
-      gregorianCalendarMonth:
-        month[0].toUpperCase() + month.slice(1).toLowerCase(),
-      salahTime: {
-        fajar: formatTime(cells[3].textContent!.trim(), "fajar", false),
-        zhuhr: formatTime(cells[6].textContent!.trim()),
-        asr: formatTime(cells[7].textContent!.trim()),
-        maghrib: formatTime(cells[13].textContent!.trim()),
-        isha: formatTime(cells[9].textContent!.trim()),
-      },
-    });
-  });
-
-  return salahTimetable;
-};
-
-
-
-const generateIcs = (salahTime: SalahTimetable[], year: string) => {
-  const events: ics.EventAttributes[] = salahTime.flatMap(
-    ({ day, weekday, gregorianCalendarMonth, salahTime }) => {
-      return Object.entries(salahTime)
-        .map(([salahName, time]) => {
-          const [hour, minute] = time.split(":").map(Number);
-
-          if ((hour < 9 || hour >= 17) || ["SAT", "SUN"].includes(weekday)) {
-            return null;
-          }
-
-          const date = new Date();
-          const monthIndex =
-            new Date(
-              date.getFullYear(),
-              new Date(`${gregorianCalendarMonth} 1`).getMonth(),
-            ).getMonth() + 1;
-          const salah = salahName.charAt(0).toUpperCase() + salahName.slice(1);
-
-          const dt = DateTime.fromObject({year: Number(year), month:monthIndex,day:day, hour: hour, minute}, {zone:"Europe/London"}).toUTC()
-
-          return {
-            title: `${salah} Prayer Time`,
-            start: [dt.year, dt.month, dt.day, dt.hour, dt.minute],
-            description: `Time to read ${salah} salah `,
-            duration: { minutes: 15 },
-            status: "CONFIRMED",
-            busyStatus: "BUSY",
-            startInputType:"utc",
-            startOutputType:"utc",
-            endInputType:"utc",
-            endOutputType:"utc",
-            productId:"SalahSlots/ics",
-            calName:"Salah Slots",
-            alarms: [
-              {
-                action: "audio",
-                description: `${salah} Prayer Time`,
-                summary: `${salah} Prayer Time`,
-                trigger: { minutes: 10, before: true },
-                attach: "Glass",
-              },
-            ],
-          } as ics.EventAttributes;
-        })
-        .filter((event): event is ics.EventAttributes => event !== null);
-    },
-  );
-
-  const { value } = ics.createEvents([...events]);
-
-  return value;
-};
-
-const formatTime = (
-  time: string,
-  salahName?: string,
-  isPm: boolean = true,
-): string => {
-  if (salahName === "fajar") {
-    return time.replace(".", ":");
-  }
-
-  let [hours, minutes] = time.split(".");
-  hours = hours === "12" ? "00" : hours;
-  if (isPm) {
-    hours = String(Number(hours) + 12);
-  }
-  return `${hours}:${minutes}`;
-};
-
-const getPayloadConfig = async (): Promise<{
-  month: string | undefined;
-  year: string | undefined;
-}> => {
-  try {
-    const client = new SSMClient();
-    const input = {
-      Names: [
-        "/SalahSlots/GetPayloadConfig/Month",
-        "/SalahSlots/GetPayloadConfig/Year",
-      ],
-      WithDecryption: false,
-    };
-    const command = new GetParametersCommand(input);
-    const response = await client.send(command);
-    if (response.Parameters?.length == 0) {
-      throw new Error("Parameters does not have vaules");
-    }
-    return {
-      month: response.Parameters?.[0].Value,
-      year: response.Parameters?.[1].Value,
-    };
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
-};
-
 export const handler = async (event: APIGatewayEvent, context: Context) => {
   const { month, year } = await getPayloadConfig();
   try {
@@ -219,7 +59,7 @@ export const handler = async (event: APIGatewayEvent, context: Context) => {
       body: salahIcsFile,
     };
   } catch (error) {
-    console.error("Error processing PDF:", error);
+    console.error("Error:", error);
     return {
       statusCode: 500,
       headers: { "Content-Type": "text/plain" },

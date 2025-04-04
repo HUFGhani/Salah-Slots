@@ -21,7 +21,7 @@ export class SalahSlotsInfrastructureStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: "SalahSlotsCalendar.handler",
       code: lambda.Code.fromAsset("../src/lambda/SalahSlotsCalendar"),
-      timeout: cdk.Duration.seconds(10),
+      timeout: cdk.Duration.seconds(30),
       role: lambdaExecutionRole,
     });
 

@@ -1,0 +1,52 @@
+name: CDK Deploy SalahSlotsCalendar
+
+on:
+  push:
+    branches:
+      - main  # Trigger on push to main branch
+  pull_request:
+    branches:
+      - main  # Trigger on PR to main branch
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Install CDK and dependencies
+        run: |
+          npm install -g aws-cdk
+          cd infrastructure
+          npm ci
+
+      - name: Install Lambda dependencies
+        run: |
+          cd src/lambda/SalahSlotsCalendar
+          npm ci
+          npm run build
+
+      - name: Synthesize CDK Stack
+        run: |
+          cd infrastructure
+          npx cdk synth
+
+      - name: Deploy CDK Stack
+        run: |
+          cd infrastructure
+          npx cdk deploy --require-approval never
+        env:
+          AWS_REGION: eu-west-2  # Change to your AWS region
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+

@@ -2,6 +2,7 @@ import { GetParametersCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { APIGatewayEvent, Context } from "aws-lambda";
 import * as ics from "ics";
 import { JSDOM } from "jsdom";
+import { DateTime } from 'luxon';
 
 interface SalahTime {
   fajar: String;
@@ -18,6 +19,8 @@ interface SalahTimetable {
   islamicCalendarMonth?: string;
   salahTime: SalahTime;
 }
+
+type Weekday = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
 
 const fetchSalahTimeTable = async (
   month: string,
@@ -93,10 +96,6 @@ const parseSalahTime = (html: string): SalahTimetable[] => {
   return salahTimetable;
 };
 
-const isWorkingHours = (hour: number): boolean => hour < 9 && hour >= 17;
-
-const isItWorkday = (weekday: string): boolean =>
-  weekday != "SAT" && weekday != "SUN";
 
 
 const generateIcs = (salahTime: SalahTimetable[], year: string) => {
@@ -106,9 +105,9 @@ const generateIcs = (salahTime: SalahTimetable[], year: string) => {
         .map(([salahName, time]) => {
           const [hour, minute] = time.split(":").map(Number);
 
-          isWorkingHours(hour);
-
-          isItWorkday(weekday);
+          if ((hour < 9 || hour >= 17) || !["SAT", "SUN"].includes(weekday)) {
+            return null;
+          }
 
           const date = new Date();
           const monthIndex =
@@ -118,19 +117,21 @@ const generateIcs = (salahTime: SalahTimetable[], year: string) => {
             ).getMonth() + 1;
           const salah = salahName.charAt(0).toUpperCase() + salahName.slice(1);
 
+          const dt = DateTime.fromObject({year: Number(year), month:monthIndex,day:day, hour: hour, minute}, {zone:"Europe/London"}).toUTC()
+
           return {
             title: `${salah} Prayer Time`,
-            start: [
-              Number(year),
-              monthIndex,
-              day,
-              Number(hour),
-              Number(minute),
-            ],
+            start: [dt.year, dt.month, dt.day, dt.hour, dt.minute],
             description: `Time to read ${salah} salah `,
             duration: { minutes: 15 },
             status: "CONFIRMED",
             busyStatus: "BUSY",
+            startInputType:"utc",
+            startOutputType:"utc",
+            endInputType:"utc",
+            endOutputType:"utc",
+            productId:"SalahSlots/ics",
+            calName:"Salah Slots",
             alarms: [
               {
                 action: "audio",

@@ -105,7 +105,7 @@ const generateIcs = (salahTime: SalahTimetable[], year: string) => {
         .map(([salahName, time]) => {
           const [hour, minute] = time.split(":").map(Number);
 
-          if ((hour < 9 || hour >= 17) || !["SAT", "SUN"].includes(weekday)) {
+          if ((hour < 9 || hour >= 17) || ["SAT", "SUN"].includes(weekday)) {
             return null;
           }
 

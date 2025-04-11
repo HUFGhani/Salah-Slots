@@ -28,7 +28,7 @@ jobs:
         run: |
           cd src/lambda/SalahSlotsCalendar
           npm ci
-          npx jest --config=jest.config.js --coverage
+          npm run test 
 
       - name: Install CDK and dependencies
         run: |

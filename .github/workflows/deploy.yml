@@ -28,7 +28,7 @@ jobs:
         run: |
           cd src/lambda/SalahSlotsCalendar
           npm ci
-          npm run test
+          npm test -- --ci
           npm run build
 
       - name: Install CDK and dependencies

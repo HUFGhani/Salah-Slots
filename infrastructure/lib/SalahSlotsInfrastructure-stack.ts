@@ -47,7 +47,7 @@ export class SalahSlotsInfrastructureStack extends cdk.Stack {
 
     const distribution = new cloudfront.Distribution(this, "SalahSlotsDistribution", {
       defaultBehavior: {
-        origin: new origins.HttpOrigin(lambdaUrl.url.replace("https://", "").replace("/", "")), // Use Lambda Function URL as origin
+        origin: new origins.HttpOrigin("eowrbmqwdyy7zpxwkm5fgl6jt40llhwa.lambda-url.eu-west-2.on.aws"), // Use Lambda Function URL as origin
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED, // Disable caching for dynamic content
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },

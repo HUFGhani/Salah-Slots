@@ -90,9 +90,9 @@ The application uses AWS SSM Parameter Store to configure the month and year for
 *   `/src/lambda/SalahSlotsCalendar`: Contains the code for the AWS Lambda function.
     *   `SalahSlotsCalendar.ts`: The main handler function for the Lambda. See [`handler`](src/lambda/SalahSlotsCalendar/SalahSlotsCalendar.ts)
     *   `/parseSalahTime`: Contains the logic for parsing the HTML content. See [`parseSalahTime`](src/lambda/SalahSlotsCalendar/parseSalahTime/parseSalahTime.ts)
-    *   `/generateIcs`: Contains the logic for generating the iCalendar file. See [`generateIcs`](src/lambda/SalahSlotsCalendar/generateIcs/index.ts)
-    *   `/formatTime`: Contains the logic for formatting time. See [`formatTime`](src/lambda/SalahSlotsCalendar/formatTime/index.ts)
-    *   `/getPayloadConfig`: Contains the logic for getting the month and year from SSM. See [`getPayloadConfig`](src/lambda/SalahSlotsCalendar/getPayloadConfig/index.ts)
+    *   `/generateIcs`: Contains the logic for generating the iCalendar file. See [`generateIcs`](src/lambda/SalahSlotsCalendar/generateIcs/generateIcs.ts)
+    *   `/formatTime`: Contains the logic for formatting time. See [`formatTime`](src/lambda/SalahSlotsCalendar/formatTime/formatTime.ts)
+    *   `/getPayloadConfig`: Contains the logic for getting the month and year from SSM. See [`getPayloadConfig`](src/lambda/SalahSlotsCalendar/getPayloadConfig/getPayloadConfig.ts)
 
 ## Testing
 

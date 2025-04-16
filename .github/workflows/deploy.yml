@@ -28,7 +28,12 @@ jobs:
         run: |
           cd src/lambda/SalahSlotsCalendar
           npm ci
-          npm run test 
+
+      - name: Run Jest for Lambda tests
+        run: |
+          cd src/lambda/SalahSlotsCalendar
+          npm run test
+
 
       - name: Install CDK and dependencies
         run: |

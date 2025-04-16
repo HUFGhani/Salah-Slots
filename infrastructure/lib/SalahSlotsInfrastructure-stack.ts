@@ -45,12 +45,23 @@ export class SalahSlotsInfrastructureStack extends cdk.Stack {
       authType: lambda.FunctionUrlAuthType.NONE,
     });
 
-    console.log("Lambda URL:", lambdaUrl.url.replace("https://", "").replace("/",""));
+    const cachePolicy = new cloudfront.CachePolicy(this, "CachePolicy", {
+      cachePolicyName: "salah-slots-cache-policy",
+      defaultTtl: cdk.Duration.days(28),
+      maxTtl: cdk.Duration.days(28),
+      minTtl: cdk.Duration.seconds(0),
+      headerBehavior: cloudfront.CacheHeaderBehavior.none(),
+      queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
+      cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+      enableAcceptEncodingGzip: true,
+      enableAcceptEncodingBrotli: true,
+      comment: "Cache policy for Salah Slots",
+    })
 
     const distribution = new cloudfront.Distribution(this, "SalahSlotsDistribution", {
       defaultBehavior: {
         origin: new origins.HttpOrigin(lambdaUrl.url.replace("https://", "").replace("/","")), // Use Lambda Function URL as origin
-        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED, // Disable caching for dynamic content
+        cachePolicy: cachePolicy,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
     });

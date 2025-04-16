@@ -45,6 +45,11 @@ jobs:
           cd infrastructure
           npm ci
 
+      - name: run CDK tests
+        run: |
+          cd infrastructure
+          npm run test
+
       - name: Synthesize CDK Stack
         run: |
           cd infrastructure

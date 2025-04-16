@@ -1,8 +1,8 @@
 import * as cdk from "aws-cdk-lib";
-import * as iam from "aws-cdk-lib/aws-iam";
-import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 
 export class SalahSlotsInfrastructureStack extends cdk.Stack {
@@ -45,9 +45,11 @@ export class SalahSlotsInfrastructureStack extends cdk.Stack {
       authType: lambda.FunctionUrlAuthType.NONE,
     });
 
+    console.log("Lambda URL:", lambdaUrl.url.replace("https://", "").replace("/",""));
+
     const distribution = new cloudfront.Distribution(this, "SalahSlotsDistribution", {
       defaultBehavior: {
-        origin: new origins.HttpOrigin("eowrbmqwdyy7zpxwkm5fgl6jt40llhwa.lambda-url.eu-west-2.on.aws"), // Use Lambda Function URL as origin
+        origin: new origins.HttpOrigin(lambdaUrl.url.replace("https://", "").replace("/","")), // Use Lambda Function URL as origin
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED, // Disable caching for dynamic content
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
